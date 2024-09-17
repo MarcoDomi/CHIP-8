@@ -1,4 +1,5 @@
 #include "chip8.h"
+#include<string.h>
 
 const unsigned int FONTSET_SIZE = 80;
 uint8_t fontset[FONTSET_SIZE] =
@@ -57,4 +58,90 @@ void chip8::LoadROM(char const* filename){
         // Free the buffer
         delete[] buffer;
     }
+}
+
+//clear the display
+void chip8::OP_00E0(){
+    memset(video, 0, sizeof(video));
+}
+
+//return from subroutine //overwrites the premptive pc += 2
+void chip8::OP_00EE(){
+    --sp;
+    pc = stack[sp];
+}
+
+//jump to location nnn 
+//interpreter sets PC to nnn
+//jump doesnt remember its origin -> no stack interaction needed
+void chip8::OP_1nnn()
+{
+    uint16_t address = opcode & 0x0FFFu; //extracts bottom 12 bits from opcode which is the desired address
+
+    pc = address;
+}
+
+//call subroutine at nnn
+void chip8::OP_2nnn(){
+    uint16_t address = opcode & 0x0FFFu;
+
+    stack[sp] = pc;
+    ++sp;
+    pc = address;
+}
+
+//skip next instruction if Vx == kk
+//bc pc is +2 by cycle() we +2 again to skip next instruction
+void chip8::OP_3xkk(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    if (registers[Vx] == byte){
+        pc += 2;
+    }
+}
+
+//skip next instruction if Vx != kk
+void chip8::OP_4xkk(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    if (registers[Vx] != byte){
+        pc += 2;
+    }
+}
+
+//skip next instruction if Vx == Vy
+void chip8::OP_5xy0(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u; //shift bits to right by 8 -> this places the 4 bits in least significant position which makes it easier to reference register
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u; //shift bits to right by 4 -> this places the 4 bits in least significatn position
+
+    if (registers[Vx] == registers[Vy]){
+        pc += 2;
+    }
+}
+
+
+//assign kk to Vx
+void chip8::OP_6xkk(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    registers[Vx] = byte;
+}
+
+//add byte to Vx
+void chip8::OP_7xkk(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    registers[Vx] += byte;
+}
+
+//assign Vy to Vx
+void chip8::OP_8xy0(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    registers[Vx] = registers[Vy];
 }
