@@ -145,3 +145,165 @@ void chip8::OP_8xy0(){
 
     registers[Vx] = registers[Vy];
 }
+
+//assign Vx bitwise or Vy to Vx
+void chip8::OP_8xy1(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    registers[Vx] |= registers[Vy];
+}
+//assign Vx bitwise and Vy to Vx
+void chip8::OP_8xy2(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    registers[Vx] &= registers[Vy];
+}
+//assign Vx bitwise xor Vy to Vx
+void chip8::OP_8xy3(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    registers[Vx] ^= registers[Vy];
+}
+
+//performs Vx = Vx + Vy
+void chip8::OP_8xy4(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    uint16_t sum = registers[Vx] + registers[Vy];
+
+    if (sum > 255U){
+        registers[0xF] = 1;
+    }
+    else{
+        registers[0xF] = 0;
+    }
+
+    registers[Vx] = sum & 0xFFu;
+}
+
+//performs Vx = Vx - Vy
+void chip8::OP_8xy5(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    if (registers[Vx] > registers[Vy]){
+        registers[0xF] = 1;
+    }
+    else{
+        registers[0xF] = 0;
+    }
+
+    registers[Vx] -= registers[Vy];
+}
+
+//shift Vx to right by 1 which divides Vx by 2
+void chip8::OP_8xy6(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    // Save LSB in VF
+    registers[0xF] = (registers[Vx] & 0x1u);
+
+    registers[Vx] >>= 1;
+}
+
+//performs Vx = Vy - Vx
+void chip8::OP_8xy7(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    if (registers[Vy] > registers[Vx]){
+        registers[0xF] = 1;
+    }
+    else{
+        registers[0xF] = 0;
+    }
+
+    registers[Vx] = registers[Vy] - registers[Vx];
+}
+
+//shift Vx to left by 1 which mulitplies Vx by 2
+void chip8::OP_8xyE(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    // Save MSB in VF
+    registers[0xF] = (registers[Vx] & 0x80u) >> 7u;
+
+    registers[Vx] <<= 1;
+}
+
+//skip next instruction if Vx != Vy
+void chip8::OP_9xy0(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    if (registers[Vx] != registers[Vy]){
+        pc += 2;
+    }
+}
+
+
+//set index to address
+void chip8::OP_Annn(){
+    uint16_t address = opcode & 0x0FFFu;
+
+    index = address;
+}
+
+//jump to location nnn + V0
+void chip8::OP_Bnnn(){
+    uint16_t address = opcode & 0x0FFFu;
+
+    pc = registers[0] + address;
+}
+
+
+//set Vx = random byte AND kk
+void chip8::OP_Cxkk(){
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    registers[Vx] = randByte(randGen) & byte;
+}
+
+void chip8::OP_Dxyn(){
+    const int VIDEO_WIDTH = 64;
+    const int VIDEO_HEIGHT = 32;
+    
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+    uint8_t height = opcode & 0x000Fu;
+
+    // Wrap if going beyond screen boundaries
+    uint8_t xPos = registers[Vx] % VIDEO_WIDTH;
+    uint8_t yPos = registers[Vy] % VIDEO_HEIGHT;
+
+    registers[0xF] = 0;
+
+    for (unsigned int row = 0; row < height; ++row)
+    {
+        uint8_t spriteByte = memory[index + row];
+
+        for (unsigned int col = 0; col < 8; ++col)
+        {
+            uint8_t spritePixel = spriteByte & (0x80u >> col);
+            uint32_t *screenPixel = &video[(yPos + row) * VIDEO_WIDTH + (xPos + col)];
+
+            // Sprite pixel is on
+            if (spritePixel)
+            {
+                // Screen pixel also on - collision
+                if (*screenPixel == 0xFFFFFFFF)
+                {
+                    registers[0xF] = 1;
+                }
+
+                // Effectively XOR with the sprite pixel
+                *screenPixel ^= 0xFFFFFFFF;
+            }
+        }
+    }
+}
